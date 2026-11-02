@@ -1,0 +1,69 @@
+{
+  "name": "naramine-visual-fun",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.0.9",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n web,worker -c cyan,magenta \"pnpm dev:web\" \"pnpm worker:dev\"",
+    "dev:web": "next dev --hostname 127.0.0.1",
+    "worker:dev": "tsx watch src/worker/index.ts",
+    "build": "prisma generate && next build",
+    "start": "concurrently -k -n web,worker -c cyan,magenta \"pnpm start:web\" \"pnpm start:worker\"",
+    "start:web": "next start --hostname 127.0.0.1",
+    "start:worker": "tsx src/worker/index.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "data:prepare": "node scripts/prepare-data-dir.mjs",
+    "db:generate": "prisma generate",
+    "db:migrate": "node scripts/prepare-data-dir.mjs && prisma migrate dev",
+    "db:deploy": "node scripts/prepare-data-dir.mjs && prisma migrate deploy",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0",
+    "@xyflow/react": "12.11.2",
+    "chokidar": "5.0.0",
+    "elkjs": "0.12.0",
+    "next": "16.2.12",
+    "pino": "10.3.1",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "0.35.3",
+    "zod": "4.4.3",
+    "zustand": "5.0.14"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "concurrently": "^9.2.1",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "16.2.12",
+    "postcss": "^8.5.0",
+    "prettier": "^3.6.0",
+    "prisma": "6.19.0",
+    "tailwindcss": "4.3.3",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.10"
+  },
+  "pnpm": {
+    "allowBuilds": {
+      "@prisma/client": true,
+      "@prisma/engines": true,
+      "esbuild": true,
+      "prisma": true,
+      "sharp": true,
+      "unrs-resolver": true
+    }
+  }
+}

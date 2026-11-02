@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id                  String           @id
+  title               String
+  originalPrompt      String
+  variantsPerRevision Int              @default(4)
+  optimizationRounds  Int              @default(3)
+  survivorsPerRound   Int              @default(2)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  lastOpenedAt        DateTime         @default(now())
+  revisions           Revision[]
+  images              GeneratedImage[]
+  references          ReferenceAsset[]
+  jobs                Job[]
+  edges               CreativeEdge[]
+}
+
+model Revision {
+  id                  String              @id
+  projectId           String
+  parentRevisionId    String?
+  sourceImageId       String?
+  round               Int
+  branchIndex         Int
+  originalPrompt      String
+  editPrompt          String?
+  planningPrompt      String
+  expandedPrompt      String
+  optimizationSummary String?
+  jobLogPath          String?
+  createdAt           DateTime            @default(now())
+  project             Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  parentRevision      Revision?           @relation("RevisionChildren", fields: [parentRevisionId], references: [id], onDelete: Restrict)
+  childRevisions      Revision[]          @relation("RevisionChildren")
+  sourceImage         GeneratedImage?     @relation("RevisionSourceImage", fields: [sourceImageId], references: [id], onDelete: Restrict)
+  images              GeneratedImage[]    @relation("RevisionImages")
+  references          RevisionReference[]
+  edges               CreativeEdge[]
+
+  @@index([projectId, round])
+  @@index([parentRevisionId])
+  @@index([sourceImageId])
+}
+
+model GeneratedImage {
+  id               String          @id
+  projectId        String
+  revisionId       String
+  candidateIndex   Int
+  filePath         String
+  thumbnailPath    String
+  mimeType         String
+  width            Int
+  height           Int
+  sha256           String
+  generationPrompt String
+  generationMeta   String
+  selected         Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  project          Project         @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  revision         Revision        @relation("RevisionImages", fields: [revisionId], references: [id], onDelete: Restrict)
+  evaluation       Evaluation?
+  childRevisions   Revision[]      @relation("RevisionSourceImage")
+  outgoingEdges    CreativeEdge[]  @relation("EdgeSource")
+  incomingEdges    CreativeEdge[]  @relation("EdgeTarget")
+  position         CanvasPosition?
+
+  @@unique([revisionId, candidateIndex])
+  @@index([projectId])
+}
+
+model Evaluation {
+  id                  String         @id
+  imageId             String         @unique
+  score               Int
+  strengthsJson       String
+  weaknessesJson      String
+  recommendationsJson String
+  reasoning           String
+  evaluatorPrompt     String
+  evaluatorResponse   String
+  createdAt           DateTime       @default(now())
+  image               GeneratedImage @relation(fields: [imageId], references: [id], onDelete: Restrict)
+}
+
+model ReferenceAsset {
+  id           String              @id
+  projectId    String
+  originalName String
+  filePath     String
+  mimeType     String
+  sha256       String
+  width        Int
+  height       Int
+  createdAt    DateTime            @default(now())
+  project      Project             @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  revisions    RevisionReference[]
+
+  @@index([projectId])
+}
+
+model RevisionReference {
+  revisionId  String
+  referenceId String
+  ordinal     Int
+  role        String
+  revision    Revision       @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  reference   ReferenceAsset @relation(fields: [referenceId], references: [id], onDelete: Restrict)
+
+  @@id([revisionId, referenceId])
+  @@unique([revisionId, ordinal])
+}
+
+model CreativeEdge {
+  id            String         @id
+  projectId     String
+  revisionId    String
+  sourceImageId String
+  targetImageId String         @unique
+  label         String
+  metadataJson  String
+  createdAt     DateTime       @default(now())
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  revision      Revision       @relation(fields: [revisionId], references: [id], onDelete: Restrict)
+  sourceImage   GeneratedImage @relation("EdgeSource", fields: [sourceImageId], references: [id], onDelete: Restrict)
+  targetImage   GeneratedImage @relation("EdgeTarget", fields: [targetImageId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([sourceImageId])
+}
+
+model CanvasPosition {
+  imageId   String         @id
+  x         Float
+  y         Float
+  updatedAt DateTime       @updatedAt
+  image     GeneratedImage @relation(fields: [imageId], references: [id], onDelete: Cascade)
+}
+
+model Job {
+  id           String             @id
+  projectId    String
+  type         String
+  state        String             @default("QUEUED")
+  payloadJson  String
+  progress     Int                @default(0)
+  currentRound Int                @default(0)
+  totalRounds  Int
+  attemptCount Int                @default(0)
+  lockedAt     DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  error        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  project      Project            @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  events       JobEvent[]
+  attempts     CandidateAttempt[]
+
+  @@index([state, createdAt])
+  @@index([projectId, createdAt])
+}
+
+model JobEvent {
+  id        String   @id
+  jobId     String
+  level     String
+  kind      String
+  message   String
+  dataJson  String?
+  createdAt DateTime @default(now())
+  job       Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId, createdAt])
+}
+
+model CandidateAttempt {
+  id             String   @id
+  jobId          String
+  round          Int
+  branchIndex    Int
+  candidateIndex Int
+  parentImageId  String?
+  state          String   @default("QUEUED")
+  prompt         String
+  outputPath     String?
+  error          String?
+  attemptCount   Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  job            Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, round, branchIndex, candidateIndex])
+  @@index([jobId, state])
+}
+
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}

@@ -1,0 +1,6 @@
+.next/
+coverage/
+data/
+node_modules/
+pnpm-lock.yaml
+tasks/
